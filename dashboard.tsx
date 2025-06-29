@@ -15,6 +15,8 @@ export default function Component() {
   const [text, setText] = useState("")
   const [audioUrls, setAudioUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
+  const [pause, setPause] = useState("1")
+  const [combinedUrl, setCombinedUrl] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/voices")
@@ -56,6 +58,100 @@ export default function Component() {
     } finally {
       setIsGenerating(false)
     }
+  }
+
+  const handleCombine = async () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const buffers = await Promise.all(
+        audioUrls.map(async (url) => {
+          const res = await fetch(url)
+          const arr = await res.arrayBuffer()
+          return await ctx.decodeAudioData(arr)
+        })
+      )
+      if (!buffers.length) return
+      const sampleRate = buffers[0].sampleRate
+      const numChannels = buffers[0].numberOfChannels
+      const pauseSamples = Math.floor(parseFloat(pause) * sampleRate)
+      const totalLength = buffers.reduce(
+        (sum, b, i) => sum + b.length + (i < buffers.length - 1 ? pauseSamples : 0),
+        0
+      )
+      const output = ctx.createBuffer(numChannels, totalLength, sampleRate)
+      let offset = 0
+      buffers.forEach((b, idx) => {
+        for (let ch = 0; ch < numChannels; ch++) {
+          output.getChannelData(ch).set(b.getChannelData(ch), offset)
+        }
+        offset += b.length
+        if (idx < buffers.length - 1) {
+          offset += pauseSamples
+        }
+      })
+
+      const wavBlob = audioBufferToWav(output)
+      const url = URL.createObjectURL(wavBlob)
+      setCombinedUrl(url)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  function audioBufferToWav(buffer: AudioBuffer) {
+    const numChannels = buffer.numberOfChannels
+    const sampleRate = buffer.sampleRate
+    const bitDepth = 16
+    const bytesPerSample = bitDepth / 8
+    const blockAlign = numChannels * bytesPerSample
+    const byteRate = sampleRate * blockAlign
+    const dataLength = buffer.length * blockAlign
+    const bufferLength = 44 + dataLength
+    const arrayBuffer = new ArrayBuffer(bufferLength)
+    const view = new DataView(arrayBuffer)
+
+    let offset = 0
+    const writeString = (s: string) => {
+      for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i))
+      offset += s.length
+    }
+    const writeUint16 = (d: number) => {
+      view.setUint16(offset, d, true)
+      offset += 2
+    }
+    const writeUint32 = (d: number) => {
+      view.setUint32(offset, d, true)
+      offset += 4
+    }
+
+    writeString('RIFF')
+    writeUint32(bufferLength - 8)
+    writeString('WAVE')
+    writeString('fmt ')
+    writeUint32(16)
+    writeUint16(1)
+    writeUint16(numChannels)
+    writeUint32(sampleRate)
+    writeUint32(byteRate)
+    writeUint16(blockAlign)
+    writeUint16(bitDepth)
+    writeString('data')
+    writeUint32(dataLength)
+
+    const interleaved = new Float32Array(buffer.length * numChannels)
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        interleaved[i * numChannels + ch] = buffer.getChannelData(ch)[i]
+      }
+    }
+
+    let index = 44
+    for (let i = 0; i < interleaved.length; i++, index += 2) {
+      const s = Math.max(-1, Math.min(1, interleaved[i]))
+      view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7fff, true)
+    }
+
+    return new Blob([arrayBuffer], { type: 'audio/wav' })
   }
 
   const wordCount =
@@ -171,6 +267,40 @@ export default function Component() {
                     </a>
                   </div>
                 ))}
+                {combinedUrl && (
+                  <div className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200">
+                    <audio controls src={combinedUrl} className="mr-4 h-10" />
+                    <a href={combinedUrl} download="combined.wav">
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div></div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-gray-500">Pause</Label>
+                    <Select value={pause} onValueChange={setPause}>
+                      <SelectTrigger className="h-8 w-16 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">0s</SelectItem>
+                        <SelectItem value="0.5">0.5s</SelectItem>
+                        <SelectItem value="1">1s</SelectItem>
+                        <SelectItem value="2">2s</SelectItem>
+                        <SelectItem value="3">3s</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button variant="outline" className="text-sm bg-transparent" onClick={handleCombine}>
+                    Combine
+                  </Button>
+                </div>
               </div>
             </div>
           )}
