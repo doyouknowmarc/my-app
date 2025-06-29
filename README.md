@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-The first request to the TTS endpoints will download the ONNX model and voice files from Hugging Face.  This can take a few minutes the first time.
+Place your ONNX model in the `models` directory and voice binaries in the `voices` directory at the project root.
 
 ### API
 
