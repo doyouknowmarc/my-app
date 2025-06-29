@@ -4,7 +4,7 @@ This project provides a small text-to-speech playground using the [Kokoro](https
 
 ## Setup
 
-Install dependencies and start the development server:
+Install dependencies and start the development server using the Express backend which also runs Next.js:
 
 ```bash
 npm install
@@ -21,6 +21,8 @@ Two endpoints are available:
 - `POST /api/generate` – generate audio from text. The body should include `text`, optional `voice` and `speed`.
 
 ### Production build
+
+Build the Next.js application and start the Express server:
 
 ```bash
 npm run build
