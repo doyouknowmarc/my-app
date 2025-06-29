@@ -11,12 +11,15 @@ const handle = nextApp.getRequestHandler();
 const app = express();
 app.use(express.json());
 
-const MODEL_DIR = path.resolve(process.cwd(), 'models');
+
+//const MODEL_ID = 'onnx-community/Kokoro-82M-ONNX';
+const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX'
+//const MODEL_ID = 'models/model_quantized.onnx';
 let ttsPromise = null;
 async function getModel() {
   if (!ttsPromise) {
     await ensureVoices();
-    ttsPromise = KokoroTTS.from_pretrained(MODEL_DIR, { dtype: 'q8' });
+    ttsPromise = KokoroTTS.from_pretrained(MODEL_ID, { dtype: 'q8' });
   }
   return ttsPromise;
 }
