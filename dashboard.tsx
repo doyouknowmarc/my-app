@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
@@ -13,11 +13,12 @@ export default function Component() {
   const [selectedVoice, setSelectedVoice] = useState("")
   const [speed, setSpeed] = useState([1.0])
   const [text, setText] = useState("")
-  const [audioUrls, setAudioUrls] = useState<string[]>([])
+  const [audioUrls, setAudioUrls] = useState<{ url: string; name: string }[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [isCombining, setIsCombining] = useState(false)
   const [pause, setPause] = useState("1")
   const [combinedUrl, setCombinedUrl] = useState<string | null>(null)
+  const counterRef = useRef(1)
 
   useEffect(() => {
     fetch("/api/voices")
@@ -34,26 +35,34 @@ export default function Component() {
   const handleGenerate = async () => {
     if (!text.trim()) return
     setIsGenerating(true)
+    setAudioUrls([])
+    counterRef.current = 1
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          voice: selectedVoice,
-          speed: speed[0],
-        }),
-      })
-      if (!res.ok) throw new Error("Failed to generate")
-      const data = await res.json()
-      const urls = await Promise.all(
-        (data.audios || []).map(async (b64: string) => {
+      const parts = text
+        .split(/\s*---\s*/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+      for (const part of parts) {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: part,
+            voice: selectedVoice,
+            speed: speed[0],
+          }),
+        })
+        if (!res.ok) throw new Error("Failed to generate")
+        const data = await res.json()
+        for (const b64 of data.audios || []) {
           const resp = await fetch(`data:audio/wav;base64,${b64}`)
           const blob = await resp.blob()
-          return URL.createObjectURL(blob)
-        })
-      )
-      setAudioUrls(urls)
+          const url = URL.createObjectURL(blob)
+          const duration = await getDuration(blob)
+          const name = `[${counterRef.current++}] ${selectedVoice} x${speed[0]} x${duration.toFixed(2)}s`
+          setAudioUrls((prev) => [...prev, { url, name }])
+        }
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -64,9 +73,12 @@ export default function Component() {
   const handleCombine = async () => {
     setIsCombining(true)
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const ctx = new (
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      )()
       const buffers = await Promise.all(
-        audioUrls.map(async (url) => {
+        audioUrls.map(async ({ url }) => {
           const res = await fetch(url)
           const arr = await res.arrayBuffer()
           return await ctx.decodeAudioData(arr)
@@ -102,15 +114,28 @@ export default function Component() {
     }
   }
 
-  const handleDownloadAll = () => {
-    audioUrls.forEach((url, idx) => {
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `speech_${idx + 1}.wav`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    })
+  const handleDownloadAll = async () => {
+    const { default: JSZip } = await import('jszip')
+    const zip = new JSZip()
+    await Promise.all(
+      audioUrls.map(async ({ url, name }) => {
+        const res = await fetch(url)
+        const blob = await res.blob()
+        zip.file(`${name}.wav`, blob)
+      })
+    )
+    if (combinedUrl) {
+      const res = await fetch(combinedUrl)
+      const blob = await res.blob()
+      zip.file('combined.wav', blob)
+    }
+    const content = await zip.generateAsync({ type: 'blob' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(content)
+    link.download = 'audio_files.zip'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   function audioBufferToWav(buffer: AudioBuffer) {
@@ -167,6 +192,16 @@ export default function Component() {
     }
 
     return new Blob([arrayBuffer], { type: 'audio/wav' })
+  }
+
+  async function getDuration(blob: Blob): Promise<number> {
+    const ctx = new (
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    )()
+    const arr = await blob.arrayBuffer()
+    const buffer = await ctx.decodeAudioData(arr)
+    return buffer.duration
   }
 
   const wordCount =
@@ -242,7 +277,7 @@ export default function Component() {
                     const val = parseFloat(e.target.value)
                     if (!isNaN(val)) setSpeed([val])
                   }}
-                  className="w-20 rounded-md border border-gray-200 px-1 text-sm text-gray-500"
+                  className="w-10 rounded-md border border-gray-200 px-1 text-sm text-gray-500"
                 />
               </div>
             </div>
@@ -296,10 +331,24 @@ export default function Component() {
 
               {/* File List */}
               <div className="space-y-2">
-                {audioUrls.map((url, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200">
-                    <audio controls src={url} className="mr-4 h-10" />
-                    <a href={url} download={`speech_${idx + 1}.wav`}>
+                {audioUrls.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200"
+                  >
+                    <audio controls src={file.url} className="mr-4 h-10" />
+                    <input
+                      type="text"
+                      value={file.name}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setAudioUrls((prev) =>
+                          prev.map((f, i) => (i === idx ? { ...f, name: val } : f))
+                        )
+                      }}
+                      className="mr-4 flex-1 rounded-md border border-gray-200 px-2 py-1 text-sm text-gray-900"
+                    />
+                    <a href={file.url} download={`${file.name}.wav`}>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <Download className="h-4 w-4" />
                       </Button>
