@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Play, Download } from "lucide-react"
+import { Play, Download, Loader2 } from "lucide-react"
 
 export default function Component() {
   const [voices, setVoices] = useState<string[]>([])
@@ -15,6 +15,7 @@ export default function Component() {
   const [text, setText] = useState("")
   const [audioUrls, setAudioUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isCombining, setIsCombining] = useState(false)
   const [pause, setPause] = useState("1")
   const [combinedUrl, setCombinedUrl] = useState<string | null>(null)
 
@@ -61,6 +62,7 @@ export default function Component() {
   }
 
   const handleCombine = async () => {
+    setIsCombining(true)
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
       const buffers = await Promise.all(
@@ -95,6 +97,8 @@ export default function Component() {
       setCombinedUrl(url)
     } catch (err) {
       console.error(err)
+    } finally {
+      setIsCombining(false)
     }
   }
 
@@ -238,7 +242,7 @@ export default function Component() {
                     const val = parseFloat(e.target.value)
                     if (!isNaN(val)) setSpeed([val])
                   }}
-                  className="w-12 rounded-md border border-gray-200 px-1 text-sm text-gray-500"
+                  className="w-20 rounded-md border border-gray-200 px-1 text-sm text-gray-500"
                 />
               </div>
             </div>
@@ -336,8 +340,20 @@ export default function Component() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button variant="outline" className="text-sm bg-transparent" onClick={handleCombine}>
-                    Combine
+                  <Button
+                    variant="outline"
+                    className="text-sm bg-transparent"
+                    disabled={isCombining}
+                    onClick={handleCombine}
+                  >
+                    {isCombining ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Combining...
+                      </>
+                    ) : (
+                      "Combine"
+                    )}
                   </Button>
                 </div>
               </div>
