@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
@@ -8,28 +8,54 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Play, Download } from "lucide-react"
 
-const voices = [
-  { id: "alloy", name: "Alloy", type: "Neutral" },
-  { id: "echo", name: "Echo", type: "Male" },
-  { id: "fable", name: "Fable", type: "Female" },
-  { id: "onyx", name: "Onyx", type: "Deep" },
-  { id: "nova", name: "Nova", type: "Warm" },
-  { id: "shimmer", name: "Shimmer", type: "Soft" },
-]
-
 export default function Component() {
-  const [selectedVoice, setSelectedVoice] = useState("alloy")
+  const [voices, setVoices] = useState<string[]>([])
+  const [selectedVoice, setSelectedVoice] = useState("")
   const [speed, setSpeed] = useState([1.0])
   const [text, setText] = useState("")
+  const [audioUrls, setAudioUrls] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
-  const [hasAudio, setHasAudio] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/voices")
+      .then((r) => r.json())
+      .then((d) => {
+        setVoices(d.voices || [])
+        if (d.voices && d.voices.length) {
+          setSelectedVoice(d.voices[0])
+        }
+      })
+      .catch((err) => console.error(err))
+  }, [])
 
   const handleGenerate = async () => {
     if (!text.trim()) return
     setIsGenerating(true)
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsGenerating(false)
-    setHasAudio(true)
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          voice: selectedVoice,
+          speed: speed[0],
+        }),
+      })
+      if (!res.ok) throw new Error("Failed to generate")
+      const data = await res.json()
+      const urls = await Promise.all(
+        (data.audios || []).map(async (b64: string) => {
+          const resp = await fetch(`data:audio/wav;base64,${b64}`)
+          const blob = await resp.blob()
+          return URL.createObjectURL(blob)
+        })
+      )
+      setAudioUrls(urls)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const wordCount =
@@ -40,6 +66,7 @@ export default function Component() {
       .filter((word) => word.length > 0).length || 0
 
   const breakCount = (text.match(/---/g) || []).length
+  const hasAudio = audioUrls.length > 0
 
   return (
     <div className="min-h-screen bg-white">
@@ -77,8 +104,8 @@ export default function Component() {
                 </SelectTrigger>
                 <SelectContent className="border-gray-200 bg-white">
                   {voices.map((voice) => (
-                    <SelectItem key={voice.id} value={voice.id} className="text-gray-900 focus:bg-gray-50 text-sm">
-                      {voice.name}
+                    <SelectItem key={voice} value={voice} className="text-gray-900 focus:bg-gray-50 text-sm">
+                      {voice}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -122,7 +149,7 @@ export default function Component() {
                   variant="outline"
                   size="sm"
                   className="text-gray-500 hover:text-gray-700 bg-transparent"
-                  onClick={() => setHasAudio(false)}
+                  onClick={() => setAudioUrls([])}
                 >
                   Clear
                 </Button>
@@ -130,50 +157,16 @@ export default function Component() {
 
               {/* File List */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm font-medium text-gray-900">speech_output_1.mp3</span>
-                    <span className="text-xs text-gray-500">2.3 MB</span>
+                {audioUrls.map((url, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200">
+                    <audio controls src={url} className="mr-4 h-10" />
+                    <a href={url} download={`speech_${idx + 1}.wav`}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </a>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Play className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-2">
-                <Button variant="outline" className="text-sm bg-transparent">
-                  <Download className="mr-2 h-4 w-4" />
-                  Download All
-                </Button>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm text-gray-500">Pause</Label>
-                    <Select defaultValue="1">
-                      <SelectTrigger className="h-8 w-16 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">0s</SelectItem>
-                        <SelectItem value="0.5">0.5s</SelectItem>
-                        <SelectItem value="1">1s</SelectItem>
-                        <SelectItem value="2">2s</SelectItem>
-                        <SelectItem value="3">3s</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button variant="outline" className="text-sm bg-transparent">
-                    Combine
-                  </Button>
-                </div>
+                ))}
               </div>
             </div>
           )}
