@@ -71,7 +71,11 @@ export default function Component() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="border-b border-gray-100"></div>
+      <header className="border-b border-gray-200">
+        <div className="mx-auto max-w-4xl px-6 py-4">
+          <h1 className="text-lg font-medium text-gray-900">Text to Speech</h1>
+        </div>
+      </header>
 
       {/* Main Content */}
       <div className="mx-auto max-w-4xl px-6 py-8">
@@ -124,7 +128,7 @@ export default function Component() {
             <Button
               onClick={handleGenerate}
               disabled={!text.trim() || isGenerating}
-              className="h-12 px-8 text-base bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500"
+              className="h-12 px-8 text-base bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-500"
             >
               {isGenerating ? (
                 <>
@@ -148,7 +152,7 @@ export default function Component() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-gray-500 hover:text-gray-700 bg-transparent"
+                  className="text-gray-500 hover:text-gray-900 bg-transparent"
                   onClick={() => setAudioUrls([])}
                 >
                   Clear
