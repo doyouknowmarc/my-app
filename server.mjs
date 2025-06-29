@@ -3,6 +3,9 @@ import next from 'next';
 import { KokoroTTS } from 'kokoro-js';
 import path from 'path';
 import fs from 'fs/promises';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev });
