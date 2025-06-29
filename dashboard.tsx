@@ -98,6 +98,17 @@ export default function Component() {
     }
   }
 
+  const handleDownloadAll = () => {
+    audioUrls.forEach((url, idx) => {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `speech_${idx + 1}.wav`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    })
+  }
+
   function audioBufferToWav(buffer: AudioBuffer) {
     const numChannels = buffer.numberOfChannels
     const sampleRate = buffer.sampleRate
@@ -194,7 +205,7 @@ export default function Component() {
           </div>
 
           {/* Controls and Generate Button */}
-          <div className="flex justify-end items-center gap-6 pt-4">
+          <div className="flex justify-end items-center gap-6 pt-2">
             {/* Voice Selection */}
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-500">Voice</Label>
@@ -216,8 +227,19 @@ export default function Component() {
             <div className="flex items-center gap-2">
               <Label className="text-sm text-gray-500">Speed</Label>
               <div className="flex items-center gap-2">
-                <Slider value={speed} onValueChange={setSpeed} max={2} min={0.25} step={0.25} className="w-20" />
-                <span className="text-sm text-gray-500 w-8">{speed[0]}x</span>
+                <Slider value={speed} onValueChange={setSpeed} max={2} min={0.25} step={0.01} className="w-20" />
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.25"
+                  max="2"
+                  value={speed[0]}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value)
+                    if (!isNaN(val)) setSpeed([val])
+                  }}
+                  className="w-12 rounded-md border border-gray-200 px-1 text-sm text-gray-500"
+                />
               </div>
             </div>
 
@@ -245,14 +267,27 @@ export default function Component() {
             <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-gray-900">Downloads</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-gray-500 hover:text-gray-900 bg-transparent"
-                  onClick={() => setAudioUrls([])}
-                >
-                  Clear
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-gray-500 hover:text-gray-900 bg-transparent"
+                    onClick={handleDownloadAll}
+                  >
+                    Download All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-gray-500 hover:text-gray-900 bg-transparent"
+                    onClick={() => {
+                      setAudioUrls([])
+                      setCombinedUrl(null)
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
               </div>
 
               {/* File List */}
@@ -267,7 +302,11 @@ export default function Component() {
                     </a>
                   </div>
                 ))}
-                {combinedUrl && (
+              </div>
+
+              {combinedUrl && (
+                <div className="pt-4 space-y-2">
+                  <h4 className="text-md font-medium text-gray-900">Combined Audio</h4>
                   <div className="flex items-center justify-between p-3 bg-white rounded-md border border-gray-200">
                     <audio controls src={combinedUrl} className="mr-4 h-10" />
                     <a href={combinedUrl} download="combined.wav">
@@ -276,8 +315,8 @@ export default function Component() {
                       </Button>
                     </a>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="flex items-center justify-between pt-2">
                 <div></div>
@@ -285,7 +324,7 @@ export default function Component() {
                   <div className="flex items-center gap-2">
                     <Label className="text-sm text-gray-500">Pause</Label>
                     <Select value={pause} onValueChange={setPause}>
-                      <SelectTrigger className="h-8 w-16 text-xs">
+                      <SelectTrigger className="h-8 w-20 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
