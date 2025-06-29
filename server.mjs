@@ -26,7 +26,7 @@ async function getModel() {
 
 async function ensureVoices() {
   try {
-    const distPath = path.dirname(require.resolve('kokoro-js/dist/kokoro.js'));
+    const distPath = path.dirname(require.resolve('kokoro-js'));
     const distVoices = path.join(distPath, 'voices');
     const rootVoices = path.resolve(process.cwd(), 'voices');
     await fs.access(distVoices).catch(async () => {
