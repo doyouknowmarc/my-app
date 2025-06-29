@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const tts = await getModel()
     const parts = text
       .split(/\s*---\s*/)
-      .map(t => t.trim())
+      .map((t: string) => t.trim())
       .filter(Boolean)
 
     const audioBuffers: string[] = []
