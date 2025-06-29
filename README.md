@@ -1,11 +1,31 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Notes Marc
-derived from here npx shadcn@latest add "https://v0.dev/chat/b/b_t00BaMBqBha"
-cd my-app
+This project provides a small text-to-speech playground using the [Kokoro](https://github.com/hexgrad/kokoro) model.  The UI is built with Next.js and Shadcn.
+
+## Setup
+
+Install dependencies and start the development server:
+
+```bash
 npm install
+npm run dev
+```
+
+The first request to the TTS endpoints will download the ONNX model and voice files from Hugging Face.  This can take a few minutes the first time.
+
+### API
+
+Two endpoints are available:
+
+- `GET /api/voices` – returns the list of available voices
+- `POST /api/generate` – generate audio from text. The body should include `text`, optional `voice` and `speed`.
+
+### Production build
+
+```bash
 npm run build
-npm run start
+npm start
+```
 
 ## Getting Started
 
