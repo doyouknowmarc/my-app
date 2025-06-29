@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+Notes Marc
+derived from here npx shadcn@latest add "https://v0.dev/chat/b/b_t00BaMBqBha"
+cd my-app
+npm install
+npm run build
+npm run start
+
 ## Getting Started
 
 First, run the development server:
